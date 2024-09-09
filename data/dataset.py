@@ -188,25 +188,30 @@ def click():
     X_train, X_valid, X_test = quantile_transform(X_train.astype(np.float32), X_valid.astype(np.float32), X_test.astype(np.float32))
     return X_train, y_train, X_valid, y_valid, X_test, y_test
 
+
 def cardio():
     target = 'cardio'
+    # Load data
     data = pd.read_csv('./data/cardio/cardiovascular-disease.csv', delimiter=';').drop(['id'], axis=1)
-    train_idx = pd.read_csv('./data/cardio/train_idx.csv')['0'].values
-    train = data.iloc[train_idx, :]
-    valid_idx = pd.read_csv('./data/cardio/valid_idx.csv')['0'].values
-    valid = data.iloc[valid_idx, :]
-    test_idx = pd.read_csv('./data/cardio/test_idx.csv')['0'].values
-    test = data.iloc[test_idx, :]
-
+    
+    # Split into train and remaining (test + validation) set (80% train, 20% remaining)
+    train, remaining = train_test_split(data, test_size=0.2, random_state=42, stratify=data[target])
+    
+    # Split remaining into validation and test sets (50% validation, 50% test of remaining 20%)
+    valid, test = train_test_split(remaining, test_size=0.5, random_state=42, stratify=remaining[target])
+    
+    # Separate features and target for train, valid, and test sets
     y_train = train[target].values
     train.drop([target], axis=1, inplace=True)
+    
     y_valid = valid[target].values
     valid.drop([target], axis=1, inplace=True)
+    
     y_test = test[target].values
     test.drop([target], axis=1, inplace=True)
+    print(train, y_train, valid, y_valid, test, y_test)
+    return train, y_train, valid, y_valid, test, y_test
 
-    X_train, X_valid, X_test = quantile_transform(train, valid, test)
-    return X_train, y_train, X_valid, y_valid, X_test, y_test
 
 
 def get_data(datasetname):

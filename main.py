@@ -10,6 +10,8 @@ from qhoptim.pyt import QHAdam
 from config.default import cfg
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
+from sklearn.model_selection import train_test_split
+import pandas as pd
 def get_args():
     parser = argparse.ArgumentParser(description='PyTorch v1.4, DANet Task Training')
     parser.add_argument('-c', '--config', type=str, required=False, default='config/forest_cover_type.yaml', metavar="FILE", help='Path to config file')
@@ -18,8 +20,8 @@ def get_args():
     args = parser.parse_args()
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
     torch.backends.cudnn.benchmark = True if len(args.gpu_id) < 2 else False
-    if args.config:
-        cfg.merge_from_file(args.config)
+        # if args.config:
+        #     cfg.merge_from_file(args.config)
     cfg.freeze()
     task = cfg.task
     seed = cfg.seed
@@ -61,12 +63,33 @@ def set_task_model(task, std=None, seed=1):
     return clf, eval_metric
 
 if __name__ == '__main__':
+    target = 'cardio'
 
     print('===> Setting configuration ...')
     train_config, fit_config, model_config, task, seed, n_gpu = get_args()
     logname = None if train_config['logname'] == '' else train_config['dataset'] + '/' + train_config['logname']
     print('===> Getting data ...')
-    X_train, y_train, X_valid, y_valid, X_test, y_test = get_data(train_config['dataset'])
+    data = pd.read_csv('./data/cardio/cardiovascular-disease.csv', delimiter=';').drop(['id'], axis=1)
+    
+    # Split into train and remaining (test + validation) set (80% train, 20% remaining)
+    X_train, remaining = train_test_split(data, test_size=0.2, random_state=42, stratify=data[target])
+    
+    # Split remaining into validation and test sets (50% validation, 50% test of remaining 20%)
+    X_valid, X_test = train_test_split(remaining, test_size=0.5, random_state=42, stratify=remaining[target])
+    
+    # Separate features and target for train, valid, and test sets
+    y_train = X_train[target].values
+    X_train.drop([target], axis=1, inplace=True)
+    
+    y_valid = X_valid[target].values
+    X_valid.drop([target], axis=1, inplace=True)
+    
+    y_test = X_test[target].values
+    X_test.drop([target], axis=1, inplace=True)
+
+    X_train = X_train.to_numpy()
+    X_test = X_test.to_numpy()
+    X_valid = X_valid.to_numpy()
     mu, std = None, None
     if task == 'regression':
         mu, std = y_train.mean(), y_train.std()
